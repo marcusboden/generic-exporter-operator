@@ -1,0 +1,75 @@
+type: charm
+name: generic-exporter
+title: Generic Exporter
+summary: A generic, configurable exporter charm that sets up an exporter from a snap and exports metrics via relations
+description: |
+  The Generic Exporter installs an exporter snap and exports metrics and alert rules via relations.
+
+  The charm takes a snap from the store or via resource and installs it. It allows some config options for the snap
+  and makes the matrics available via the cos-agent interface.
+  The charm also supports configurable alert rules, also exporter by the interface.
+
+  Ideally, the workload that the charm will be monitoring should pack the exporter itself and this charm should not be
+  necessary. However, sometimes this is not the case and going through the proper channels to get it implemented
+  might not be feasible. This is charm is a workaround for these cases. Essentially, this should only be used if a
+  feature request is already reported to the workload charm, but the metrics and rules are needed *now*.
+
+subordinate: true
+platforms:
+  ubuntu@22.04:amd64:
+  ubuntu@24.04:amd64:
+
+
+parts:
+  charm:
+    plugin: charm
+    source: .
+    charm-requirements:
+      - requirements.txt
+
+
+charm-libs:
+  - lib: operator-libs-linux.snap
+    version: "2"  # Must be a string, not a number.
+  - lib: grafana_agent.cos_agent
+    version: "0"
+
+config:
+  options:
+    snap-name:
+      type: string
+      default: None
+      description: |
+        Name of the snap in the store (ignored when resource is attached).
+    alert-rules:
+      type: string
+      description: |
+        Multiline YAML text containing Prometheus alert rules which will be
+        forwarded over the cos-agent relation.
+    exporter-port:
+      type: int
+      description: Port that the exporter listens on
+    metrics-path:
+      type: string
+      default: "metrics"
+      description: The path on which the metrics are exported. Without a leading slash. Usually "metrics".
+
+resources:
+  exporter-snap:
+    type: file
+    filename: prometheus-exporter.snap
+    description: |
+      Local snap file. If omitted the charm falls back to installing
+      the snap named in the 'snap-name' config option from the snapstore
+
+provides:
+  cos-agent:
+    interface: cos_agent
+
+requires:
+  juju-info:
+    description: |
+      `juju-info` provides basic compatibility with all charms.
+    interface: juju-info
+    scope: container
+    optional: true
