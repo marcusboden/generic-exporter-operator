@@ -30,6 +30,7 @@ class SnapNameNotConfigured(Exception):
 class ExporterConfig(BaseModel):
     exporter_port: int
     snap_name: str | None = None
+    classic: bool
     metrics_path: str
     alert_rules: str | None = None
 
@@ -62,14 +63,14 @@ class GenericExporterCharm(ops.CharmBase):
 
     def _install_from_resource(self, resource_path: Path):
         logger.info("Installing snap from resource %s", resource_path)
-        snap.install_local(filename=str(resource_path), dangerous=True)
+        snap.install_local(filename=str(resource_path), dangerous=True, classic=self._config.classic)
 
     def _install_from_store(self, name):
         cache = snap.SnapCache()
         logger.info(f"Installing snap {name} from store")
         installed = cache[name]
         if not installed.present:
-            installed.ensure(snap.SnapState.Latest, classic=False, devmode=False)
+            installed.ensure(snap.SnapState.Latest, classic=self._config.classic)
 
     def _install_snap(self, event):
         """Install snap from resource or store."""

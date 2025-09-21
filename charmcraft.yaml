@@ -41,6 +41,12 @@ config:
       default: None
       description: |
         Name of the snap in the store (ignored when resource is attached).
+    classic:
+      type: boolean
+      default: false
+      description: |
+        If set to true, the snap will be set to classic confinement.
+        The default is to use strict confinement.
     alert-rules:
       type: string
       description: |
