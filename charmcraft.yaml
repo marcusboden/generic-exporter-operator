@@ -6,7 +6,7 @@ description: |
   The Generic Exporter installs an exporter snap and exports metrics and alert rules via relations.
 
   The charm takes a snap from the store or via resource and installs it. It allows some config options for the snap
-  and makes the matrics available via the cos-agent interface.
+  and makes the metrics available via the cos-agent interface.
   The charm also supports configurable alert rules, also exporter by the interface.
 
   Ideally, the workload that the charm will be monitoring should pack the exporter itself and this charm should not be
@@ -18,6 +18,14 @@ subordinate: true
 platforms:
   ubuntu@22.04:amd64:
   ubuntu@24.04:amd64:
+  ubuntu@22.04:arm64:
+  ubuntu@24.04:arm64:
+  ubuntu@22.04:armhf:
+  ubuntu@24.04:armhf:
+  ubuntu@22.04:ppc64el:
+  ubuntu@24.04:ppc64el:
+  ubuntu@22.04:s390x:
+  ubuntu@24.04:s390x:
 
 
 parts:
@@ -41,6 +49,16 @@ config:
       default: None
       description: |
         Name of the snap in the store (ignored when resource is attached).
+    snap-config:
+      type: string
+      default: None
+      description: |
+        A yaml or json formatted string of config options for the snap. These configurations will be passed directly to the snap.
+    snap-channel:
+      type: string
+      default: latest/stable
+      description: |
+        The channel from which to install the snap. Ignored, if a resource if configured.
     classic:
       type: boolean
       default: false

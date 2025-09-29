@@ -1,2 +1,4 @@
 ops>2,<4
-pydantic
+pydantic~=2.11.7
+typing_extensions~=4.15.0
+PyYAML

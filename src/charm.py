@@ -5,8 +5,7 @@
 # Learn more at: https://juju.is/docs/sdk
 
 import logging
-import pathlib
-
+import yaml
 from pydantic import BaseModel
 
 import ops
@@ -22,14 +21,14 @@ logger = logging.getLogger(__name__)
 RESOURCE_NAME = "exporter-snap"
 RULES_DIR = "/etc/generic-exporter-rules/"
 
-VALID_LOG_LEVELS = ["info", "debug", "warning", "error", "critical"]
-
 class SnapNameNotConfigured(Exception):
     pass
 
 class ExporterConfig(BaseModel):
     exporter_port: int
     snap_name: str | None = None
+    snap_config: str | None = None
+    snap_channel: str
     classic: bool
     metrics_path: str
     alert_rules: str | None = None
@@ -61,24 +60,28 @@ class GenericExporterCharm(ops.CharmBase):
             refresh_events=[self.on.config_changed],
         )
 
+    # Todo: We install each config changed hook. We should hash the snap and only install if there's a change.
     def _install_from_resource(self, resource_path: Path):
         logger.info("Installing snap from resource %s", resource_path)
-        snap.install_local(filename=str(resource_path), dangerous=True, classic=self._config.classic)
+        if resource_path.stat().st_size == 0:
+            raise ops.model.ModelError("Resource File is empty")
+        exporter_snap = snap.install_local(filename=str(resource_path), dangerous=True, classic=self._config.classic)
+        return exporter_snap.name
 
     def _install_from_store(self, name):
         cache = snap.SnapCache()
-        logger.info(f"Installing snap {name} from store")
+        logger.info(f"Installing snap {name} from store, classic confinement is {self._config.classic} and channel is {self._config.snap_channel}")
         installed = cache[name]
         if not installed.present:
-            installed.ensure(snap.SnapState.Latest, classic=self._config.classic)
+            installed.ensure(snap.SnapState.Latest, classic=self._config.classic, channel=self._config.snap_channel)
 
-    def _install_snap(self, event):
+    def _install_snap(self, event = None) -> str:
         """Install snap from resource or store."""
         try:
             path = self.model.resources.fetch(RESOURCE_NAME)
-            self._install_from_resource(path)
+            name = self._install_from_resource(path)
             self.unit.status = ops.ActiveStatus("snap installed")
-            return
+            return name
         except ops.model.ModelError:
             logger.info("No resource configured, will use snapstore")
 
@@ -91,9 +94,17 @@ class GenericExporterCharm(ops.CharmBase):
 
         self._install_from_store(cfg_name)
         self.unit.status = ops.ActiveStatus("snap installed")
+        return self._config.snap_name
 
     def _configure(self, _):
         """Apply snap configuration and alert rules."""
+        name = self._install_snap()
+        snap_config = yaml.safe_load(self._config.snap_config or "")
+        if snap_config and snap_config != "None":
+            logger.info(f"Setting snap config to {snap_config}")
+            cache = snap.SnapCache()
+            exporter = cache[name]
+            exporter.set(snap_config)
 
         # write alert rules
         rules_dir = Path(RULES_DIR)
