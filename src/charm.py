@@ -19,7 +19,6 @@ from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 logger = logging.getLogger(__name__)
 
 RESOURCE_NAME = "exporter-snap"
-RULES_DIR = "/etc/generic-exporter-rules/"
 
 class SnapNameNotConfigured(Exception):
     pass
@@ -45,6 +44,8 @@ class GenericExporterCharm(ops.CharmBase):
             self.unit.status = ops.BlockedStatus(str(e))
             return
 
+        self.rules_dir = Path(f"/etc/{self.app.name}/")
+
         self.framework.observe(self.on.install, self._install_snap)
         self.framework.observe(self.on.config_changed, self._configure)
         self.framework.observe(self.on.upgrade_charm, self._install_snap)
@@ -56,7 +57,7 @@ class GenericExporterCharm(ops.CharmBase):
                 "path": f'/{self._config.metrics_path}',
                 "port": self._config.exporter_port
             }],
-            metrics_rules_dir=RULES_DIR,
+            metrics_rules_dir=self.rules_dir,
             refresh_events=[self.on.config_changed],
         )
 
@@ -104,10 +105,10 @@ class GenericExporterCharm(ops.CharmBase):
             logger.info(f"Setting snap config to {snap_config}")
             cache = snap.SnapCache()
             exporter = cache[name]
-            exporter.set(snap_config)
+            exporter.set(snap_config, typed=True)
 
         # write alert rules
-        rules_dir = Path(RULES_DIR)
+        rules_dir = Path(self.rules_dir)
         rules_dir.mkdir(parents=True, exist_ok=True)
         rules = self._config.alert_rules
         (rules_dir / "alerts.rules").write_text(rules or "# no alerts\n")
